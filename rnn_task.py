@@ -59,7 +59,6 @@ class SimpleClassificationRNN(nn.Module):
         '''
         task 1: write network structure here using nn.RNN
         '''
-        super(SimpleClassificationRNN, self).__init__()
         self.rnn = nn.RNN(input_size=1,
                           hidden_size=hidden_size,
                           batch_first=True,
