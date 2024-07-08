@@ -26,24 +26,21 @@ class QNetwork(nn.Module):
         )
 
     def forward(self, x):
-        '''
-        前向计算
-        '''
         return self.network(x)
 
 
 if __name__ == "__main__":
     # Parameters
     learning_rate = 3e-4
-    buffer_size = int(1e6)
+    buffer_size = int(1e5)
     total_timesteps = int(1e6)
     epsilon = 0.01
     gamma = 0.99
     tau = 1.0
 
-    learning_starts = 80000
+    learning_starts = 10000
     train_frequency = 4
-    log_frequency = 50
+    log_frequency = 500
     target_frequency = 1000
     batch_size = 256
 
@@ -70,15 +67,14 @@ if __name__ == "__main__":
         '''
         实现epsilon-greedy算法，epsilon为给定超参
         '''
-        if random.random() > epsilon:
+        if random.random() < epsilon:
             actions = env.action_space.sample()
         else:
-            q_values = q_network(torch.tensor(obs, device=device, dtype=torch.float32).unsqueeze(0))
-            action = torch.argmax(q_values, dim=1).cpu().numpy()
+            q_values = q_network(torch.tensor(obs, device=device, dtype=torch.float32).unsqueeze(dim=0))
+            actions = torch.argmax(q_values, dim=1).cpu().numpy()
 
         if type(actions) == np.ndarray:
             actions = actions.item()
-
 
         next_obs, rewards, terminations, truncations, infos = env.step(actions)
         total_reward += rewards
@@ -97,21 +93,22 @@ if __name__ == "__main__":
             if step % train_frequency == 0:
                 data = buffer.sample(batch_size)
                 buffer_obs, act, next_buffer_obs, rew, cont = data
-
                 '''
                 计算td_target
                 Q(s,a) (old_val)
                 '''
                 with torch.no_grad():
-                    target_max = target_network(buffer_obs).max(dim=1,keepdim=True)[0]
+                    target_max = target_network(next_buffer_obs).max(dim=1, keepdim=True)[0]
                     td_target = rew + gamma * target_max * cont
                 old_val = q_network(buffer_obs).gather(1, act)
-
                 loss = F.mse_loss(td_target, old_val)
 
                 if step % log_frequency == 0:
                     # wandb.log({"td_loss": loss.item(), "q_values": old_val.mean().item()}, step=step)
-                    print('td_loss: {}\t q_values: {}\t step: {}, avg_rewards: {}'.format(loss.item(), old_val.mean().item(), step, np.mean(total_rewards[-100:])))
+                    print('td_loss: {}\t q_values: {}\t step: {}, avg_rewards: {}'.format(loss.item(),
+                                                                                          old_val.mean().item(), step,
+                                                                                          np.mean(
+                                                                                              total_rewards[-100:])))
                     pass
 
                 # optimize the model

@@ -43,8 +43,8 @@ if __name__ == "__main__":
 
     learning_starts = 80000
     train_frequency = 4
-    log_frequency = 50
-    target_frequency = 1000
+    log_frequency = 500
+    target_update_frequency = 1000
     batch_size = 256
 
     # wandb.init(project="DQN", name="Freeway")
@@ -71,16 +71,18 @@ if __name__ == "__main__":
         实现epsilon-greedy算法，epsilon为给定超参
         '''
         if random.random() < epsilon:
-            action = env.action_space.sample()
+            actions = env.action_space.sample()
         else:
-            q_values = q_network(torch.tensor(obs, device=device, dtype=torch.float32).unsqueeze(0))
-            action = torch.argmax(q_values, dim=1).cpu().numpy()[0]
+            q_values = q_network(torch.tensor(obs, device=device, dtype=torch.float32).unsqueeze(dim=0))
+            actions = torch.argmax(q_values, dim=1).cpu().numpy()
 
-        next_obs, rewards, terminations, truncations, infos = env.step(action)
+        if type(actions) == np.ndarray:
+            actions = actions.item()
+        next_obs, rewards, terminations, truncations, infos = env.step(actions)
         total_reward += rewards
 
         real_next_obs = infos["final_observation"] if truncations else next_obs.copy()
-        buffer.add(obs, action, real_next_obs, rewards, terminations)
+        buffer.add(obs, actions, real_next_obs, rewards, terminations)
         obs = next_obs
 
         if terminations:
@@ -119,7 +121,7 @@ if __name__ == "__main__":
                 optimizer.step()
 
             # update target network
-            if step % target_frequency == 0:
+            if step % target_update_frequency == 0:
                 target_network.load_state_dict(q_network.state_dict())
 
     env.close()
